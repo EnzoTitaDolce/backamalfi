@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" type="text/css" href="{{url_for('static', filename='styles.css')}}">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200&display=swap" rel="stylesheet">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <link rel="shortcut icon" href="../../static/img/favicon.ico">
+    
+    <title>AmalfiExcursiones</title>
+</head>
+<body onload="render()">
+    <header>
+        <nav>   <a><img src="../../static/img/android-chrome-192x192.png"></img></a>
+                <h1>Amalfi Excursiones</h1>
+                    <div>                      
+                      <a href="{{url_for('logout')}}">Cerrar sesión</a>
+                    </div>
+                </form>
+                
+        </nav>
+    </header>
+    <main>
+        <h2>
+            Reservas de {{htmlusuario[1]}}
+        </h2>
+        {%if htmlreservas%}
+          <table>
+            <thead>
+                <td>Origen</td>
+                <td>Destino</td>
+                <td>Salida</td>
+                <td>Llegada</td>
+                <td>Precio</td>
+                <td>Anticipo</td>
+                <td>Cantidad</td>
+                
+            </thead>
+            <tbody >
+                {%for reserva in htmlreservas%}
+                <tr>
+                    
+                    <td>{{reserva[0]}}</td>
+                    <td>{{reserva[1]}}</td>
+                    <td>{{reserva[2]}}</td>
+                    <td>{{reserva[3]}}</td>
+                    <td>{{reserva[4]}}</td>
+                    <td>{{reserva[5]}}</td>
+                    <td>{{reserva[6]}}</td>
+             
+                </tr>
+                {%endfor%}
+            </tbody>    
+        </table>
+        {%else%}
+        <div id="sinreservas">
+            <h2>Aún no hiciste ninguna reserva.</h2>
+            <h2>Mirá las excursiones que tenemos para vos.</h2>
+        </div>
+        {%endif%}
+        <div id="excursionesdisponibles">
+            <h2>Excursiones que aún podes reservar</h2>
+            <table>
+                <thead>
+                    <td>Código</td>
+                    <td>Origen</td>
+                    <td>Destino</td>
+                    <td>Salida</td>
+                    <td>Llegada</td>
+                    <td>Precio</td>
+                    <td>Lugares Disponibles</td>
+                    <td>Reservas</td>
+                </thead>
+                <tbody id="tablaexcursiones">       
+                </tbody>
+            </table>            
+
+        </div>
+    </main>
+</body>
+<script>
+    function render(){
+        fetch('/excursiones').then(respuesta=>respuesta.json())
+        .then(excursiones=>{
+            console.log(excursiones)
+            let tabla=document.getElementById('tablaexcursiones');
+            for(let excursion of excursiones){
+
+                tabla.innerHTML+=`<tr>
+                        <td>${excursion[0]}</td>
+                        <td>${excursion[1]}</td>
+                        <td>${excursion[2]}</td>
+                        <td>${excursion[3]}</td>
+                        <td>${excursion[4]}</td>
+                        <td>${excursion[5]}</td>                     
+                        <td>${excursion[6]}</td>
+                        ${excursion[6] > 0 ? `<td><button onclick="reservar(${excursion[0]})">Reservar</button></td>`:'COMPLETO'}
+                        `
+            }
+
+        })
+    }
+    function reservar(index){
+        let lugares=Number(prompt('Ingrese la cantidad de lugares que desea reservar'));
+        let anticipo;
+            while (isNaN(anticipo)) {
+                anticipo = Number(prompt('Ingrese el anticipo (use el punto como símbolo decimal):'));
+                }
+        console.log(index,typeof(index))
+        fetch('/reservar',{
+            method:'POST',
+            body:new URLSearchParams({index:index, lugares:lugares, anticipo:anticipo}),
+            headers:{
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        }).then(response=>response.json())
+        .then(data=>{
+            console.log(data)
+        })
+    }
+
+    function getReservas(index){
+
+    }
+</script>
+</html>

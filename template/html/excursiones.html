@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" type="text/css" href="../../static/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200&display=swap" rel="stylesheet">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <link rel="shortcut icon" href="../../static/img/favicon.ico">
+    
+    <title>AmalfiExcursiones</title>
+</head>
+<body>
+    <header>
+        <nav>   <a href="http://127.0.0.1:5500"><img src="../../static/img/android-chrome-192x192.png"></img></a>
+                <h1>Amalfi Excursiones</h1>
+                <form id="login" action="http://127.0.0.1:5000/login" method="POST" onsubmit="return validateForm()">
+                    <div id="usuario">
+                      <label for="username">Nombre de usuario:</label>
+                      <input type="text" id="username" name="username" required><br>
+                      <span id="usernameError" class="error"></span><br>
+                    </div>
+                    <div id="contra">
+                      <label for="password">Contraseña:</label>
+                      <input type="password" id="password" name="password" required><br>
+                      <span id="passwordError" class="error"></span><br>
+                    </div>
+                    <div>
+                      <input type="submit" value="Iniciar sesión">
+                      <a href="http://127.0.0.1:5000/registro" target="_blank">Registrarme</a>
+                    </div>
+                </form>
+                
+        </nav>
+    </header>
+    <main>
+        <h2>
+            Excursiones
+        </h2>
+        <table>
+            <thead>
+                <td>Origen</td>
+                <td>Destino</td>
+                <td>Salida</td>
+                <td>Llegada</td>
+                <td>Precio</td>
+                <td>Cupo</td>
+            </thead>
+            <tbody >
+                {% for excursion in htmlexcursiones%}
+                <tr>
+                    <td>{{excursion[1]}}</td>
+                    <td>{{excursion[2]}}</td>
+                    <td>{{excursion[3]}}</td>
+                    <td>{{excursion[4]}}</td>
+                    <td>{{excursion[5]}}</td>
+                    {% if excursion[6]==0 %}
+                        <td>COMPLETO</td>
+                    {%else%}
+                    <td>{{excursion[6]}}</td>
+                    {%endif%}
+                </tr>
+                {%endfor%}
+            </tbody>    
+        </table>
+       
+
+    </main>
+    
+</body>
+</html>

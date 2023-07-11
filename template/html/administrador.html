@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" type="text/css" href="{{url_for('static', filename='styles.css')}}">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@200&display=swap" rel="stylesheet">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">    
+    <link rel="shortcut icon" href="../../static/img/favicon.ico">
+    <script src="{{url_for('static', filename='js/render.js')}}"></script>    
+    <title>AmalfiExcursiones</title>
+</head>
+<body>
+    <header>
+        <nav>   <a><img src="../../static/img/android-chrome-192x192.png"></img></a>
+                <h1>Amalfi Excursiones</h1>
+                    <div>                      
+                      <a href="{{url_for('logout')}}">Cerrar sesión</a>
+                    </div>
+                </form>
+                
+        </nav>
+    </header>
+    <main id="pandeladmin">
+        <h1>Bienvenido, {{htmladmin[1]}}.</h1>
+        <section>
+            <h2><button onclick="renderUsuarios()" class="botonadmin">Administrar Usuarios</button></h2>
+            <h2><button onclick="renderExcursiones()" class="botonadmin">Administrar Excursiones</button></h2>
+            <h2><button onclick="renderReservas()" class="botonadmin">Administrar Reservas</button></h2>
+        </section>
+        <section id="contenido">
+            
+        </section>
+    </main>
+</body>
+
+</html>
