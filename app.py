@@ -2,9 +2,11 @@ from flask import Flask, redirect, request, url_for, render_template, session, j
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
+from sqlalchemy import and_
 from sqlalchemy.exc import SQLAlchemyError
 import hashlib
 from datetime import datetime
+
 
 #dirección servidor frontend
 baseurl='http://127.0.0.1:5500/'
@@ -101,20 +103,22 @@ class Reservas(db.Model):
      idExcursion = db.Column(db.Integer, db.ForeignKey(Excursiones.id))
      adelanto = db.Column(db.Float, nullable=False)
      pagado = db.Column(db.Boolean, nullable=False)
+     cantidad=db.Column(db.Integer, nullable=False)
      
      usuario=db.relationship('Usuarios',backref=db.backref('reservas',lazy=True))
      excursion=db.relationship('Excursiones', backref=db.backref('reservas_excursion', lazy=True))
 
-     def __init__(self, idReserva, idUsuario,idExcursion,adelanto,pagado):
-           self.idReserva = idReserva
+     def __init__(self, idUsuario,idExcursion,adelanto,pagado,cantidad):
+           
            self.idUsuario = idUsuario
            self.idExcursion = idExcursion
            self.adelanto = adelanto
            self.pagado = pagado
+           self.cantidad = cantidad
 
 class ReservaSchema(ma.Schema):
       class Meta:
-            fields=('idReserva','idUsuario','idExcursion','adelanto','pagado')
+            fields=('idReserva','idUsuario','idExcursion','adelanto','pagado','cantidad')
 
 reserva_schema = ReservaSchema()
 reservas_schema = ReservaSchema(many=True)
@@ -140,9 +144,8 @@ def index():
 def login():
     #verifica que el método sea POST
     if request.method == 'POST':
-        data=request.json
-        username=data.get('username')
-        password=data.get('password')
+        username=request.form['username']
+        password=request.form['password']
         claveencriptada = hashlib.sha256(password.encode()).hexdigest()
         
         claveusuario = Usuarios.query.filter_by(mail=username).with_entities(Usuarios.clave).first()
@@ -163,10 +166,12 @@ def login():
                session['mail']=user['mail']
                session['role']=user['role']
                session['fechaIngreso']=user['fechaIngreso']
-
-               consultareserva=Reservas.query.filter_by(idReserva=session['id'])
-               reservasUsuario=reservas_schema.dump(consultareserva)
-               return jsonify(reservasUsuario)
+               if session['role']=='user':
+                    consultareserva=Reservas.query.filter_by(idReserva=session['id'])
+                    reservasUsuario=reservas_schema.dump(consultareserva)
+                    return redirect('/panelusuario')
+               else:
+                    return redirect('/paneladmin')
           else:
                return jsonify({"message":"Clave Incorrecta"})
         else:
@@ -195,12 +200,12 @@ def excursiones():
 @app.route('/registro', methods=['POST'])
 def registro():    
         if request.method == 'POST':
-          usuario = request.json['nombre']
-          apellido = request.json['apellido']
-          edad = request.json['edad']
-          mail = request.json['correo']
-          documento = request.json['documento']
-          clave = request.json['password']
+          usuario = request.form.get('nombre')
+          apellido = request.form.get('apellido')
+          edad = request.form.get('edad')
+          mail = request.form.get('correo')
+          documento = request.form.get('documento')
+          clave = request.form.get('password')
           role='user'
           #encripta la clave recibida desde el formulario html para que no se registre en la base de datos en una forma legible
           claveencriptada = hashlib.sha256(clave.encode()).hexdigest()
@@ -211,9 +216,10 @@ def registro():
           else:
                fecha=datetime.utcnow()
                nuevo_usuario=Usuarios(firstname=usuario,lastname=apellido,age=edad,mail=mail,idNumber=documento,clave=claveencriptada,role=role,fechaIngreso=fecha)
+               usuario=user_schema.dump(nuevo_usuario)
                db.session.add(nuevo_usuario)
                db.session.commit()
-               return user_schema.dump(nuevo_usuario)        
+               return "Registro exitoso. Puede iniciar sesión"
 
 
 # '''*************************************************************************************************************************************************************************************   
@@ -225,14 +231,14 @@ def registro():
 # **************************************************************************************************************************************************************************************'''        
 
 
-# @app.route('/paneladmin')
-# def administrador():
-#         #verifica si existe la session
-#         if len(session)==0:
-#                 #si no existe, redirige el navegador a la página principal
-#                 return redirect(baseurl)
-#         else:
-#             return(render_template('/html/administrador.html',htmladmin=session['resultado']))
+@app.route('/paneladmin')
+def administrador():
+        #verifica si existe la session
+        if len(session)==0 or session['role']!='admin':
+                #si no existe, redirige el navegador a la página principal
+                return redirect(baseurl+'index.html')
+        else:
+            return(render_template('/html/administrador.html',htmladmin=session['name']))
         
 
 
@@ -249,61 +255,62 @@ def adminusuarios():
           resultados=users_schema.dump(usuarios)
           return jsonify(resultados)
      
-@app.route('/reservasUsuario', methods=['GET'])
-def reservasUsuario():
-     id=request.args.get('id')
-     reservasUsuario=Reservas.query.filter_by(idUsuario=id)
-     resultados=reservas_schema.dump(reservasUsuario)
-     return jsonify(resultados)
+#MUESTRA LAS RESERVAS DE UN USUARIO
+     
+@app.route('/reservasUsuario/<int:id>', methods=['GET'])
+def reservasUsuario(id):
+     if len(session)!=0 and session['role']=='admin':
+          reservasUsuario=Reservas.query.filter_by(idUsuario=id).all()
+          resultados=reservas_schema.dump(reservasUsuario)
+          if resultados:
+               return jsonify(resultados)
+          else:
+               return jsonify({"message":"El usuario no tiene reservas."})
+     else:
+          return redirect(baseurl)
      
 # #ELIMINA EL USUARIO SELECCIONADO
 @app.route('/bajaUsuario/<int:id>', methods=['DELETE'])
 def eliminarUsuario(id):
-
-     idUsuario=request.args.get('id')
-     consulta=Reservas.query.filter_by(idUsuario=idUsuario).all()
-     resultados=reservas_schema.dump(consulta)
-     if resultados is None:
-          return None
-     else:
-          for resultado in resultados:
-               db.session.delete(resultado)
-          db.session.commit()
-          
-     try:
+     if len(session)!=0 and session['role']=='admin':
           usuario=Usuarios.query.get(id)
-          if usuario is None:
-               return jsonify({"message":"El usuario no existe."}),404
-          db.session.delete(usuario)
-          db.session.commit()
-          return jsonify({"message":"El usuario ha sido eliminado con éxito."})
-     except SQLAlchemyError as e:
-          db.session.rollback()
-          return jsonify({"message":"No se pudo eliminar"})
-
+          reservas=Reservas.query.filter_by(idUsuario=id).all()
+          if reservas:
+               for reserva in reservas:
+                    db.session.delete(reserva)
+                    db.session.commit()
+          
+          try:
+               if usuario is None:
+                    return jsonify({"message":"El usuario no existe."}),404
+               db.session.delete(usuario)
+               db.session.commit()
+               return jsonify({"message":"El usuario ha sido eliminado con éxito."})
+          except SQLAlchemyError as e:
+               db.session.rollback()
+               return jsonify({"message":"No se pudo eliminar"})
+     else:
+          return redirect(baseurl)
      
-# #Blanquea la clave del usuario seleccionado
-# @app.route('/blanquearclave',methods=['POST'])
-# def blanquearClave():
-#      if request.method=='POST':
-#           idUsuario=int(request.form.get('id'))
-#           sentencia='select idNumber from usuarios where id=%s'
-#           modificacion='update usuarios set clave=(sha2(%s,256)) where id=%s'
-#           conn=mysql.connect()
-#           cursor=conn.cursor()
-#           cursor.execute(sentencia,idUsuario)
-#           conn.commit()
-#           clave=cursor.fetchone()
-#           cursor.execute(modificacion,(clave,idUsuario))
-#           conn.commit()
-#           if cursor.rowcount>0:
-#                cursor.close()
-#                conn.close()
-#                return jsonify({'clave':clave})
-#           else:
-#                cursor.close()
-#                conn.close()
-#                return jsonify({})
+#Blanquea la clave del usuario seleccionado
+@app.route('/blanquearclave/<int:id>',methods=['PATCH'])
+def blanquearClave(id):
+     if len(session)!=0 and session['role']=='admin':
+          usuario=Usuarios.query.get(id)
+
+          if usuario:
+               clave=usuario.idNumber
+               claveencriptada=hashlib.sha256(clave.encode()).hexdigest()
+               usuario.clave=claveencriptada
+          try:
+               #fijar los cambios
+               db.session.commit()
+               return jsonify({"message":f"La nueva clase es: {clave}"})
+          except Exception as e:
+               db.session.rollback()
+               return jsonify({"message":"No se pudo cambiar la clave"})
+     else:
+          return redirect(baseurl)
 
 
 # '''*************************************************************************************************************************************************************************************   
@@ -317,136 +324,140 @@ def eliminarUsuario(id):
 
 
 # #ELIMINA LA EXCURSIÓN SELECCIONADA
-# @app.route('/bajaExcursion', methods=['POST'])
-# def eliminarExcursion():
-#      if session['role']!='admin':
-#           return 'No tiene autorización para realizar esta operación'
-#      else:
-#         if request.method=='POST':
-#             idExcursion=int(request.form.get('id'))
-#             sentencia="delete from excursiones where id = %s"
-#             conn=mysql.connect()
-#             cursor=conn.cursor()
-
-#             #eliminación de las reservas
-#             verificacion="select * from reservas where idExcursion = %s"
-#             cursor.execute(verificacion,(idExcursion))
-#             reservas=cursor.fetchall()
-#             try:
-#                 #eliminar las reservas
-#                 if reservas:
-#                         cursor.execute('delete from reservas where idExcursion = %s')
-#                         conn.commit()
-#                     #eliminar la excursión
-#                 cursor.execute(sentencia,idExcursion)
-#                 conn.commit()
-#                 if cursor.rowcount!=0:
-#                         cursor.close()
-#                         return 'Excursión Eliminada'
-#                 else:
-#                         cursor.close()
-#                         return 'No se puedo eliminar'
-#             except Exception as e:
-#                 conn.rollback()
-#                 cursor.close()
-#                 return 'Ocurrió un error: '+str(e)
-#             finally:
-#                 conn.close()
+@app.route('/bajaExcursion/<int:id>', methods=['DELETE'])
+def eliminarExcursion(id):
+     if session['role']!='admin' or len(session)==0:
+          return 'No tiene autorización para realizar esta operación'
+     else:
+          reservasExcursion=Reservas.query.filter_by(idExcursion=id).all()
+          if reservasExcursion:
+               for reserva in reservasExcursion:
+                    db.session.delete(reserva)
+                    db.session.commit()
+          excursion=Excursiones.query.get(id)
+          db.session.delete(excursion)
+          try:
+               db.session.commit()
+               return jsonify({"mensaje":"Excursión eliminada con éxito"})
+          except Exception as e:
+               db.session.rollback()
+               return jsonify({"message":"No se pudo eliminar la excursión"})
+        
 
 
-# #CREA UNA NUEVA EXCURSIÓN
-# @app.route('/altaExcursion',methods=['POST'])
-# def altaExcursion():
-#       if session['role']!='admin':
-#           return 'No tiene autorización para realizar esta operación'
-#       else:
-#         if request.method=='POST':
-#             datos_excursion = request.get_json()
-#             salida = datos_excursion['salida']
-#             destino = datos_excursion['destino']
-#             fecha_salida = datos_excursion['fechaSalida']
-#             fecha_llegada = datos_excursion['fechaLlegada']
-#             precio = datos_excursion['precio']
-#             cupo = datos_excursion['cupo']
-#             reservas = datos_excursion['reservas']
-#             completo = datos_excursion['completo']
+#CREA UNA NUEVA EXCURSIÓN
+@app.route('/altaExcursion',methods=['POST'])
+def altaExcursion():
+      if session['role']!='admin' or len(session)==0:
+          return 'No tiene autorización para realizar esta operación'
+      else:
+        if request.method=='POST':
+            datos_excursion = request.get_json()
+            salida = datos_excursion['salida']
+            destino = datos_excursion['destino']
+            fecha_salida = datos_excursion['fechaSalida']
+            fecha_llegada = datos_excursion['fechaLlegada']
+            precio = datos_excursion['precio']
+            cupo = datos_excursion['cupo']
+            reservas = datos_excursion['reservas']
+            completo = datos_excursion['completo']
+            excursion_nueva=Excursiones(salida=salida,destino=destino,fechaSalida=fecha_salida,fechaLlegada=fecha_llegada,precio=precio,cupo=cupo,reservas=reservas,completo=completo)
+
+            try:
+                 db.session.add(excursion_nueva)
+                 db.session.commit()
+                 return jsonify({"message":"Excursión agregada con éxito."})
+            except Exception as e:
+                 db.session.rollback()
+                 return jsonify({"message":"No se pudo agregar la excursión, algo salió mal."})
             
-#             sentencia="insert into excursiones (salida,destino,fechaSalida,fechaLlegada,precio,cupo,reservas,completo) values (%s,%s,%s,%s,%s,%s,%s,%s);"
-#             conn=mysql.connect()
-#             cursor=conn.cursor()
-#             cursor.execute(sentencia,(salida,destino,fecha_salida,fecha_llegada,precio,cupo,reservas,completo))
-#             conn.commit()
-#             if cursor.rowcount!=0:
-#                  conn.close()
-#                  cursor.close()
-#                  return 'Excursión añadida con éxito.'
-#             else:
-#                  conn.close()
-#                  cursor.close()
-#                  return 'Algo salió mal.'
 
-# #MODIFICA LA EXCURSIÓN SELECCIONADA
-# @app.route('/modificarExcursion', methods=['POST'])
-# def modificarExcursion():
-#      if session['role']!='admin':
-#           return 'No tiene autorización para realizar esta operación'
-#      else:
-#           if request.method=='POST':
-#                datos_excursion=request.get_json()
-#                id=datos_excursion['id']
-#                salida=datos_excursion['salida']
-#                destino=datos_excursion['destino']
-#                fecha_salida = datos_excursion['fechaSalida']
-#                fecha_llegada = datos_excursion['fechaLlegada']
-#                precio = datos_excursion['precio']
-#                cupo = datos_excursion['cupo']
-#                reservas = datos_excursion['reservas']
-#                completo = datos_excursion['completo']
-#                sentencia="update excursiones set salida = %s, destino=%s, fechaSalida=%s, fechaLlegada=%s, precio=%s, cupo=%s,reservas=%s, completo=%s where id=%s;"
-#                conn=mysql.connect()
-#                cursor=conn.cursor()
-#                cursor.execute(sentencia,(salida,destino,fecha_salida,fecha_llegada,precio,cupo,reservas,completo,id))
-#                conn.commit()
-#                if cursor.rowcount!=0:
-#                     conn.close()
-#                     cursor.close()
-#                     return 'Modificación realizada.'
-#                else:
-#                     conn.close()
-#                     cursor.close()
-#                     return 'Algo salió mal'
+#MODIFICA LA EXCURSIÓN SELECCIONADA
+@app.route('/modificarExcursion', methods=['POST'])
+def modificarExcursion():
+     if session['role']!='admin' or len(session)==0:
+          return 'No tiene autorización para realizar esta operación'
+     else:
+
+          if request.method=='POST':
+               datos_excursion=request.get_json()
+               id=datos_excursion['id']
+               salida=datos_excursion['salida']
+               destino=datos_excursion['destino']
+               fecha_salida = datos_excursion['fechaSalida']
+               fecha_llegada = datos_excursion['fechaLlegada']
+               precio = datos_excursion['precio']
+               cupo = datos_excursion['cupo']
+               reservas = datos_excursion['reservas']
+               completo = datos_excursion['completo']
+          excursionEditada=Excursiones.query.get(id)
+
+          if excursionEditada:
+               excursionEditada.salida=salida
+               excursionEditada.destino=destino
+               excursionEditada.fechaSalida=fecha_salida
+               excursionEditada.fechaLlegada=fecha_llegada
+               excursionEditada.precio=precio
+               excursionEditada.cupo=cupo
+               excursionEditada.reservas=reservas
+               excursionEditada.completo=completo
+          try:
+               db.session.commit()
+               return jsonify({"message":"La excursión ha sido modificada con éxito"})
+          except Exception as e:
+               db.session.rollback()
+               return jsonify({"message":"Algo salió mal."})
+
+# '''*************************************************************************************************************************************************************************************   
+# **************************************************************************************************************************************************************************************
+# *
+# *                                                 FUNCIONES PARA EL ADMINISTRADOR REFERIDAS A LAS RESERVAS
+# *
+# **************************************************************************************************************************************************************************************
+# **************************************************************************************************************************************************************************************'''
+
+
+
+@app.route('/adminreservas', methods=['GET'])
+def getadminReservas():
+     if len(session)==0 or session['role']!='admin':     
+          return redirect(baseurl+'frontamalfi/index.html')
+     else:
+          consulta=Reservas.query.all()
+          resultado=reservas_schema.dump(consulta)
+          return jsonify(resultado)
+@app.route('/deletereserva/<int:id>', methods=['DELETE'])
+def deleteReserva(id):
+     if len(session)==0 or session['role']!='admin':
+          return redirect(baseurl+'frontamalfi/index.html')
+     else:
+          reserva=Reservas.query.get(id)
+          if reserva:
+               db.session.delete(reserva)
+               try:
+                    db.session.commit()
+                    return jsonify({"message":"La reserva se eliminó con éxito"})
+               except Exception as e:
+                    db.session.rollback()
+                    return jsonify({"message":"Algo salió mal. No se pudo eliminar la reserva"})
+          else:
+               return jsonify({"message":"No se encuentra la reserva"})
+
                
+@app.route('/panelusuario')
+def usuario():
+     #trae los datos del usuario desde la página de login
+     usuario=session['name']
+     iduser=int(session['id'])
 
-# @app.route('/adminreservas', methods=['GET'])
-# def getadminReservas():
-#      conn=mysql.connect()
-#      cursor=conn.cursor()
-#      sentencia='select idReserva, idUsuario, idExcursion, adelanto, cantidad, pagado,firstname, lastname from reservas join usuarios where reservas.idUsuario=usuarios.id ;'
-#      cursor.execute(sentencia)
-#      reservas=cursor.fetchall()
-#      return jsonify(reservas)
-               
-
-
-               
-# @app.route('/panelusuario')
-# def usuario():
-#      #trae los datos del usuario desde la página de login
-#      usuario=session.get('resultado')
-#      iduser=usuario[0]
-#      conn=mysql.connect()
-#      cursor=conn.cursor()
-#      #busca en la base de datos la reserva del usuario según su id
-#      sentencia='select salida,destino, fechaSalida, fechaLlegada,precio,adelanto,cantidad from reservas join excursiones on reservas.idExcursion=excursiones.id where reservas.idUsuario=%s;'
-#      cursor.execute(sentencia,iduser)
-#      reservas=cursor.fetchall()
-#      #busca todas las escursiones disponibles
-#      cursor.execute('select * from excursiones')
-#      excursiones=cursor.fetchall()
-#      cursor.close()
-#      conn.close()
-
-#      return render_template('html/usuario.html',htmlusuario=usuario,htmlreservas=reservas,htmlexcursiones=excursiones)
+     consulta = db.session.query(Excursiones.salida, Excursiones.destino, Excursiones.fechaSalida, Excursiones.fechaLlegada, Excursiones.precio, Reservas.adelanto, Reservas.cantidad).join(Reservas).filter(and_(Reservas.idUsuario == iduser, Reservas.idExcursion == Excursiones.id))
+     resultado=consulta.all()
+     user=Usuarios.query.get(iduser)
+     resultadoUser=user_schema.dump(user)
+     excursiones=Excursiones.query.all()
+     resultadosExcursiones=excs_schema.dump(excursiones)
+     reservas=Reservas.query.filter_by(idUsuario=iduser)
+     return render_template('html/usuario.html',htmlusuario=resultadoUser,htmlreservas=resultado,htmlexcursiones=resultadosExcursiones)
 
 
 @app.route('/reservas', methods=['GET'])
@@ -458,38 +469,32 @@ def getReservas():
      return jsonify(resultados)
 
 
-# @app.route('/reservar',methods=['GET','POST'])
-# def reservar():
-#      usuario=session['resultado']
-#      conn=mysql.connect()
-#      cursor=conn.cursor()
-#      sentencia='insert into reservas (idUsuario,idExcursion,adelanto,pagado,cantidad) values (%s,%s,%s,0,%s);'
-#      if request.method=='POST':
-#           excursiondId=int(request.form.get('index'))
-#           cantidad=int(request.form.get('lugares'))
-#           adelanto=float(request.form.get('anticipo'))
-#           cursor.execute(sentencia,(usuario[0],excursiondId,adelanto,cantidad))
-#           if cursor.rowcount>0:
-#             conn.commit()
-#             conn.close()
-#             cursor.close()
-#             response={'mensaje':'El usuario hizo una reserva',
-#                         'lugares':cantidad,
-#                         'excursion':excursiondId}
-#             return jsonify(response)
-#           else:
-#                conn.rollback()
-#                conn.close()
-#                cursor.close()
-#                return 'Algo salió mal. Intente nuevamente'
-#      return render_template('html/reservar.html',htmlresultado=usuario[0])
+@app.route('/reservar',methods=['POST'])
+def reservar():
+     usuario=session['name']
+     idUser=session['id']
+
+     if request.method=='POST':
+          excursiondId=request.form.get('index')
+          cantidad=request.form.get('cantidad')
+          adelanto=request.form.get('adelanto')
+          reserva=Reservas(idUsuario=idUser,idExcursion=excursiondId,adelanto=adelanto,pagado=False,cantidad=cantidad)
+          db.session.add(reserva)
+          try:               
+               db.session.commit()
+               return redirect('/panelusuario')
+          except Exception as e:
+               db.session.rollback()
+          return jsonify({"message":"Algo salió mal."})
+     
 
 
 
-# @app.route('/logout')
-# def logout():
-#      session.clear()
-#      return redirect(baseurl)
+
+@app.route('/logout')
+def logout():
+     session.clear()
+     return redirect(baseurl+'frontamalfi/index.html')
 
 
 if __name__=='__main__':

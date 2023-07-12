@@ -27,7 +27,7 @@
     </header>
     <main>
         <h2>
-            Reservas de {{htmlusuario[1]}}
+            Reservas de {{htmlusuario.firstname}}
         </h2>
         {%if htmlreservas%}
           <table>
@@ -92,14 +92,14 @@
             for(let excursion of excursiones){
 
                 tabla.innerHTML+=`<tr>
-                        <td>${excursion[0]}</td>
-                        <td>${excursion[1]}</td>
-                        <td>${excursion[2]}</td>
-                        <td>${excursion[3]}</td>
-                        <td>${excursion[4]}</td>
-                        <td>${excursion[5]}</td>                     
-                        <td>${excursion[6]}</td>
-                        ${excursion[6] > 0 ? `<td><button onclick="reservar(${excursion[0]})">Reservar</button></td>`:'COMPLETO'}
+                        <td>${excursion['id']}</td>
+                        <td>${excursion['salida']}</td>
+                        <td>${excursion['destino']}</td>
+                        <td>${excursion['fechaSalida']}</td>
+                        <td>${excursion['fechaLlegada']}</td>
+                        <td>${excursion['precio']}</td>                     
+                        <td>${excursion['cupo']}</td>
+                        ${excursion['cupo'] > 0 ? `<td><button onclick="reservar(${excursion['id']})">Reservar</button></td>`:'COMPLETO'}
                         `
             }
 
@@ -111,17 +111,14 @@
             while (isNaN(anticipo)) {
                 anticipo = Number(prompt('Ingrese el anticipo (use el punto como símbolo decimal):'));
                 }
-        console.log(index,typeof(index))
+        let formData=new FormData()
+        formData.append('index',index)
+        formData.append('adelanto',anticipo)
+        formData.append('cantidad',lugares)
         fetch('/reservar',{
             method:'POST',
-            body:new URLSearchParams({index:index, lugares:lugares, anticipo:anticipo}),
-            headers:{
-                'Content-Type': 'application/x-www-form-urlencoded'
-            }
-        }).then(response=>response.json())
-        .then(data=>{
-            console.log(data)
-        })
+           body:formData
+        }).then(response=>console.log(response))
     }
 
     function getReservas(index){

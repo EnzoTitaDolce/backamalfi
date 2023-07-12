@@ -25,14 +25,39 @@
         </nav>
     </header>
     <main id="pandeladmin">
-        <h1>Bienvenido, {{htmladmin[1]}}.</h1>
+        <h1>Bienvenido, {{htmladmin}}.</h1>
         <section>
             <h2><button onclick="renderUsuarios()" class="botonadmin">Administrar Usuarios</button></h2>
             <h2><button onclick="renderExcursiones()" class="botonadmin">Administrar Excursiones</button></h2>
             <h2><button onclick="renderReservas()" class="botonadmin">Administrar Reservas</button></h2>
         </section>
+        <div id="myModal" class="modal">
+            <!-- Contenido del modal -->
+            <div class="modal-content">
+              <span class="close" onclick="closeModal()">&times;</span>
+              <h2>Formulario</h2>
+              <form id="myForm" onsubmit="agregarExcursion()">
+                <label for="salida">Salida:</label>
+                <input type="text" id="salida" name="salida"><br><br>
+                <label for="destino">Destino:</label>
+                <input type="text" id="destino" name="destino"><br><br>
+                <label for="fechaSalida">Fecha de Salida:</label>
+                <input type="date" id="fechaSalida" name="fechaSalida"><br><br>
+                <label for="fechaLlegada">Fecha de Llegada:</label>
+                <input type="date" id="fechaLlegada" name="fechaLlegada"><br><br>
+                <label for="precio">Precio:</label>
+                <input type="number" id="precio" name="precio"><br><br>
+                <label for="cupo">Cupo:</label>
+                <input type="number" id="cupo" name="cupo"><br><br>
+                <label for="reservas">Reservas:</label>
+                <input type="number" id="reservas" name="reservas"><br><br>
+                <label for="completo">Completo:</label>
+                <input type="checkbox" id="completo" name="completo"><br><br>
+                <input type="submit" value="Enviar">
+              </form>
+            </div>
+          </div>
         <section id="contenido">
-            
         </section>
     </main>
 </body>
