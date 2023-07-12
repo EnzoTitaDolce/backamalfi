@@ -126,10 +126,12 @@ reservas_schema = ReservaSchema(many=True)
 
 @app.route('/getusuarios', methods=['GET'])
 def index():
-
+     #sqlalchemy conectar base de datos y traer los usuarios
      usuarios = Usuarios.query.all()
+
+     #convertir los objetos usuarios a formato json
      users=users_schema.dump(usuarios)
-     return jsonify(users)
+     return users
 
 
 '''*************************************************************************************************************************************************************************************   
@@ -168,7 +170,7 @@ def login():
                session['fechaIngreso']=user['fechaIngreso']
                if session['role']=='user':
                     consultareserva=Reservas.query.filter_by(idReserva=session['id'])
-                    reservasUsuario=reservas_schema.dump(consultareserva)
+                    #reservasUsuario=reservas_schema.dump(consultareserva)
                     return redirect('/panelusuario')
                else:
                     return redirect('/paneladmin')
@@ -233,6 +235,7 @@ def registro():
 
 @app.route('/paneladmin')
 def administrador():
+        
         #verifica si existe la session
         if len(session)==0 or session['role']!='admin':
                 #si no existe, redirige el navegador a la página principal
@@ -240,6 +243,21 @@ def administrador():
         else:
             return(render_template('/html/administrador.html',htmladmin=session['name']))
         
+@app.route('/agregarAdmin/<int:id>', methods=['GET'])
+def agregarAdmin(id):
+  if len(session)!=0 and session['role']=='admin':
+     usuario=Usuarios.query.get(id)
+     if usuario:
+          usuario.role='admin'
+          try: 
+               db.session.commit()
+               return jsonify({"message":"El usuario ahora es administrador."})
+          except Exception as e:
+               return jsonify({"message":"Algo salió mal."})
+     else:
+          return jsonify({"message":"No existe el usuario."})
+  else: 
+       return redirect(baseurl)
 
 
         
@@ -248,7 +266,7 @@ def administrador():
 @app.route('/adminusuarios')
 def adminusuarios():
      if len(session)==0 or session['role']!='admin':
-          #return redirect(baseurl)
+          
           return jsonify({"message":"No tiene permisos"})
      else:
           usuarios=Usuarios.query.all()
@@ -462,8 +480,6 @@ def usuario():
 
 @app.route('/reservas', methods=['GET'])
 def getReservas():
-     # usuario=session.get('resultado')
-     # idUser=usuario[0]
      reservas = Reservas.query.all()
      resultados= reservas_schema.dump(reservas)
      return jsonify(resultados)

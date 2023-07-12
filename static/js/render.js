@@ -5,7 +5,20 @@
 *
 **************************************************************************************************************************************************************************************
 **************************************************************************************************************************************************************************************/
-    
+    async function agregarAdmin(){
+        
+        let id=Number(prompt('Ingrese el id del usuario: '))
+        await fetch(`/agregarAdmin/${id}`).then(response=>{
+            if (response.ok){
+                alert("El usuario ahora es administrador")
+            }
+            else{
+                return "Algo salío mal."
+            }
+        })
+    }    
+
+
     async function renderUsuarios(){
         let plantilla=document.getElementById('contenido')
         plantilla.innerHTML='';
@@ -217,7 +230,6 @@
             "reservas":reservas,
             "completo":completo
         }
-        alert(excursion_nueva.precio)
 
         fetch('/altaExcursion',{
             method:'POST',
